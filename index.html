@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>次のバス</title>
 <meta name="description" content="阪大 学内連絡バス（豊中→吹田・人間科学部前→豊中）の次の便をカウントダウン表示">
-<meta name="theme-color" content="#2b2a7a">
+<meta name="theme-color" content="#2d2a7e">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="次のバス">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -37,7 +37,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; overflow-x: hidden; overscroll-behavior: none; touch-action: pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* 上に引っ張ったときは紺、下は背景色（iOS が上端の色を拾っても紺になるように） */
-html { background: linear-gradient(var(--navy) 50%, var(--bg) 50%); }
+html { background-color: var(--navy); }
 body {
   background: var(--bg);
   min-height: 100vh;
@@ -50,7 +50,7 @@ body {
 
 /* 掲示時刻表の紺帯 */
 /* 上端に固定した不透明ヘッダー。iOS 26 Safari はこれを見てステータスバー部分を同じ色で塗る */
-.band { position: sticky; top: 0; z-index: 10; background: var(--navy); color: var(--on-navy); padding-top: env(safe-area-inset-top); }
+.band { position: sticky; top: 0; z-index: 10; background-color: var(--navy); color: var(--on-navy); }
 .band-in { max-width: 480px; margin: 0 auto; padding: 12px 16px 0; }
 .band-top { display: flex; justify-content: space-between; align-items: baseline; }
 h1 { font-size: 17px; margin: 0; letter-spacing: .04em; }
@@ -64,9 +64,10 @@ h1 .en { display: block; font-size: 11px; font-weight: 400; opacity: .75; letter
 .seg { display: flex; margin-top: 10px; }
 .seg button {
   flex: 1; border: 0; background: transparent; color: var(--on-navy); font: inherit; opacity: .65;
-  font-size: 15px; font-weight: 700; padding: 10px 4px 9px; cursor: pointer;
+  font-size: 15px; font-weight: 700; padding: 8px 2px 7px; cursor: pointer; line-height: 1.25;
   border-bottom: 3px solid transparent;
 }
+.seg button small { display: block; font-size: 12px; font-weight: 400; }
 .seg button[aria-pressed="true"] { opacity: 1; border-bottom-color: var(--on-navy); }
 
 main { max-width: 480px; margin: 0 auto; padding: 14px 16px 16px; }
@@ -157,6 +158,14 @@ const STOPS = {
       "14:25 ve","15:10 v","15:30 x","16:00 v","16:30 x","16:55 x","17:20 ve","17:25 x",
       "17:40 v","18:00 x","18:30 v","18:55 x","19:25 v","20:10 v"],
   },
+  kougaku: {
+    to: "toyonaka", express: 30, via: [25, 45],
+    times: [
+      "7:55 v","8:30 v","8:55 v","9:20 x","9:30 xe","10:00 v","10:40 v","11:15 v","11:20 x",
+      "12:10 xe","12:15 x","12:35 x","12:40 v","13:35 ve","14:15 v","15:10 xe","15:15 x",
+      "16:00 x","16:05 v","16:50 x","17:00 x","17:25 v","17:55 x","18:10 ve","18:30 x",
+      "18:40 x","19:10 v","19:45 v","20:10 v","20:20 x"],
+  },
   ningen: {
     to: "toyonaka", express: 25, via: [20, 40],
     times: [
@@ -171,7 +180,7 @@ const STOPS = {
 const I18N = {
   ja: {
     title: "学内連絡バス", other: "한국어", otherLang: "ko",
-    stops: { toyonaka: "豊中 → 吹田", ningen: "人科 → 豊中" },
+    stops: { toyonaka: ["豊中", "→ 吹田"], kougaku: ["工学部前", "→ 豊中"], ningen: ["人科前", "→ 豊中"] },
     place: { suita: "吹田", toyonaka: "豊中", minoh: "箕面" },
     dirs: { all: "すべて", express: "直行", via: "箕面経由" },
     tagExp: "直", tagVia: "箕面経由", tagOrig: "当駅始発", tagEv: "電気バス",
@@ -189,7 +198,7 @@ const I18N = {
   },
   ko: {
     title: "학내 연락버스", other: "日本語", otherLang: "ja",
-    stops: { toyonaka: "도요나카 → 스이타", ningen: "인간과학부 → 도요나카" },
+    stops: { toyonaka: ["도요나카", "→ 스이타"], kougaku: ["공학부", "→ 도요나카"], ningen: ["인간과학부", "→ 도요나카"] },
     place: { suita: "스이타", toyonaka: "도요나카", minoh: "미노오" },
     dirs: { all: "전체", express: "직행", via: "미노오 경유" },
     tagExp: "직행", tagVia: "미노오 경유", tagOrig: "시발", tagEv: "전기버스",
@@ -320,7 +329,7 @@ function renderTabs() {
   document.getElementById("footNote").innerHTML = T.foot + " ";
   document.getElementById("footLink").textContent = T.link;
   document.getElementById("stopTabs").innerHTML = Object.keys(STOPS).map(id =>
-    `<button data-stop="${id}" aria-pressed="${state.stop === id}">${T.stops[id]}</button>`).join("");
+    `<button data-stop="${id}" aria-pressed="${state.stop === id}">${T.stops[id][0]}<small>${T.stops[id][1]}</small></button>`).join("");
   document.getElementById("dirChips").innerHTML = DIRS.map(d =>
     `<button data-dir="${d.id}" aria-pressed="${state.dir === d.id}">${T.dirs[d.id]}</button>`).join("");
 }
