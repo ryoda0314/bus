@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>次のバス</title>
+<meta name="description" content="阪大 学内連絡バス（箕面学舎・人間科学部前）の次の便をカウントダウン表示">
+<meta name="theme-color" content="#2b2a7a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="次のバス">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #ffffff;
+  --text: #111122;
+  --muted: #5c5c6e;
+  --line: #c9c9d6;
+  --row: #e4e8f4;
+  --navy: #2d2a7e;
+  --on-navy: #ffffff;
+  --red: #c4161c;
+  --sel: #2d2a7e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101018; --text: #e8e8f0; --muted: #9a9aae; --line: #34344a; --row: #191926;
+    --navy: #22205e; --on-navy: #ffffff; --red: #e0343a; --sel: #9c99f2;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101018; --text: #e8e8f0; --muted: #9a9aae; --line: #34344a; --row: #191926;
+  --navy: #22205e; --on-navy: #ffffff; --red: #e0343a; --sel: #9c99f2;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 掲示時刻表の紺帯 */
+.band { background: var(--navy); color: var(--on-navy); padding-top: env(safe-area-inset-top); }
+.band-in { max-width: 480px; margin: 0 auto; padding: 12px 16px 0; }
+.band-top { display: flex; justify-content: space-between; align-items: baseline; }
+h1 { font-size: 17px; margin: 0; letter-spacing: .04em; }
+h1 span { display: block; font-size: 11px; font-weight: 400; opacity: .75; letter-spacing: 0; }
+#clock { font-variant-numeric: tabular-nums; font-size: 15px; opacity: .85; }
+.seg { display: flex; margin-top: 10px; }
+.seg button {
+  flex: 1; border: 0; background: transparent; color: var(--on-navy); font: inherit; opacity: .65;
+  font-size: 15px; font-weight: 700; padding: 10px 4px 9px; cursor: pointer;
+  border-bottom: 3px solid transparent;
+}
+.seg button[aria-pressed="true"] { opacity: 1; border-bottom-color: var(--on-navy); }
+
+main { max-width: 480px; margin: 0 auto; padding: 14px 16px 16px; }
+.chips { display: flex; border: 1px solid var(--line); }
+.chips button {
+  flex: 1; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted);
+  font: inherit; font-size: 14px; padding: 8px 4px; cursor: pointer;
+}
+.chips button:first-child { border-left: 0; }
+.chips button[aria-pressed="true"] { background: var(--sel); color: var(--bg); font-weight: 700; }
+
+.hero { padding: 22px 0 18px; border-bottom: 1px solid var(--line); }
+.hero .dep { font-size: 15px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hero .dep b { font-size: 22px; color: var(--text); font-variant-numeric: tabular-nums; }
+.hero .count { font-size: clamp(44px, 15vw, 64px); white-space: nowrap; font-weight: 800; line-height: 1.05; margin: 6px 0 8px; font-variant-numeric: tabular-nums; }
+.hero .count small { font-size: 20px; font-weight: 700; margin: 0 6px 0 2px; }
+.hero .count .pre { font-size: 20px; font-weight: 700; margin-right: 6px; }
+.hero .sub { color: var(--muted); font-size: 14px; }
+.hero.soon .count { color: var(--red); animation: blink 1s steps(2, start) infinite; }
+.hero .msg { font-size: 20px; font-weight: 700; margin: 0 0 10px; }
+@keyframes blink { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .hero.soon .count { animation: none; } }
+
+/* 掲示物と同じ記号 */
+.tag { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1; padding: 4px 5px; }
+.tag.exp { background: var(--red); color: #fff; }
+.tag.via { border: 1px solid var(--line); color: var(--muted); font-weight: 400; padding: 3px 5px; }
+.tag.orig { background: var(--text); color: var(--bg); }
+.tag.ev { color: var(--muted); font-weight: 400; padding-left: 0; padding-right: 0; }
+
+h2 { font-size: 13px; color: var(--muted); font-weight: 400; margin: 18px 0 6px; }
+ul.list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.list li { display: flex; align-items: center; padding: 11px 4px; border-bottom: 1px solid var(--line); gap: 8px; }
+ul.list li:nth-child(odd) { background: var(--row); }
+ul.list .t { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 62px; }
+ul.list .d { flex: 1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+ul.list .r { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+ul.list li.empty { color: var(--muted); justify-content: center; }
+
+footer { color: var(--muted); font-size: 12px; margin: 20px 0 8px; line-height: 1.7; }
+footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="band">
+  <div class="band-in">
+    <div class="band-top">
+      <h1>学内連絡バス<span>Inter Campus Shuttle Bus</span></h1>
+      <span id="clock"></span>
+    </div>
+    <div class="seg" id="stopTabs" role="group" aria-label="乗り場"></div>
+  </div>
+</div>
+<main>
+  <div class="chips" id="dirChips" role="group" aria-label="方面"></div>
+
+  <section class="hero" id="hero" aria-live="polite"></section>
+
+  <h2 id="laterTitle">このあと</h2>
+  <ul class="list" id="later"></ul>
+
+  <footer>
+    2026.04.01 改正ダイヤ。土日祝・運休日は運休。<br>
+    道路の混雑で遅れることがあります。
+    <a href="https://sairibus.com/bus/timetable/" target="_blank" rel="noopener">公式時刻表（再履バス同好会）</a>
+  </footer>
+</main>
+
+<script>
+// ===== 時刻表データ（2026/4/1改正） =====
+// flags: o=当駅始発, e=電気バス, x=直行, v=箕面経由
+const STOPS = {
+  minoh: {
+    name: "箕面学舎",
+    dirs: [
+      { id: "toyonaka", label: "豊中行", to: "豊中学舎", min: 20, times: [
+        "8:20","8:35 oe","8:55","9:20","10:15 o","10:25","11:05","11:40","12:35 o","13:05",
+        "14:00 e","14:40","15:10 o","15:15 o","16:05 o","16:30","16:55 oe","17:00 o","17:50",
+        "18:30 o","18:35 e","19:35","20:10","20:35"] },
+      { id: "suita", label: "吹田行", to: "吹田学舎", min: 20, times: [
+        "7:35 o","9:40","11:50","13:00 e","13:55","14:45 e","15:30","16:20","17:40 e","18:00",
+        "18:50","19:45","20:30"] },
+    ],
+  },
+  ningen: {
+    name: "人間科学部前",
+    dirs: [
+      { id: "all", label: "豊中行 すべて", filter: null },
+      { id: "express", label: "直行", filter: "x" },
+      { id: "via", label: "箕面経由", filter: "v" },
+    ],
+    // 直行: 豊中まで25分 / 箕面経由: 箕面まで20分・豊中まで40分
+    times: [
+      "8:00 v","8:35 v","9:00 v","9:25 x","9:35 xe","10:05 v","10:45 v","11:20 v","11:25 x",
+      "12:15 xe","12:20 x","12:40 x","12:45 v","13:40 ve","14:20 v","15:15 xe","15:20 x",
+      "16:05 x","16:10 v","16:55 x","17:05 x","17:30 v","18:00 x","18:15 ve","18:35 x",
+      "18:45 x","19:15 v","19:50 v","20:15 v","20:25 x"],
+  },
+};
+
+// ===== 運休日（公式Googleカレンダーより、終了日を含む） =====
+const CLOSED_RANGES = [
+  ["2026-04-01","2026-04-09"], ["2026-04-29","2026-04-29"], ["2026-05-04","2026-05-06"],
+  ["2026-08-11","2026-09-30"], ["2026-11-02","2026-11-04"], ["2026-12-26","2027-01-03"],
+  ["2027-02-04","2027-02-04"], ["2027-02-09","2027-03-31"],
+];
+// ===== 祝日（土日祝は記載が無くても運休） =====
+const HOLIDAYS = new Set([
+  "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20","2026-04-29","2026-05-03",
+  "2026-05-04","2026-05-05","2026-05-06","2026-07-20","2026-08-11","2026-09-21","2026-09-22",
+  "2026-09-23","2026-10-12","2026-11-03","2026-11-23",
+  "2027-01-01","2027-01-11","2027-02-11","2027-02-23","2027-03-21","2027-03-22",
+]);
+
+// ===== 時刻ユーティリティ（端末TZに関係なくJSTで計算） =====
+const JST = 9 * 3600 * 1000;
+const params = new URLSearchParams(location.search);
+// デバッグ: ?t=2026-10-05T12:30 で現在時刻を固定（JSTとして解釈、以後は進む）
+const debugOffset = params.has("t") ? Date.parse(params.get("t") + ":00Z") - JST - Date.now() : 0;
+const nowMs = () => Date.now() + debugOffset;
+
+// JSTの「その日の0時」をUTCミリ秒で返す
+const jstDayStart = ms => Math.floor((ms + JST) / 86400000) * 86400000 - JST;
+const ymd = dayStart => new Date(dayStart + JST).toISOString().slice(0, 10);
+const pad = n => String(n).padStart(2, "0");
+const hm = ms => { const d = new Date(ms + JST); return `${d.getUTCHours()}:${pad(d.getUTCMinutes())}`; };
+
+function isServiceDay(dayStart) {
+  const key = ymd(dayStart);
+  const dow = new Date(dayStart + JST).getUTCDay();
+  if (dow === 0 || dow === 6 || HOLIDAYS.has(key)) return false;
+  return !CLOSED_RANGES.some(([a, b]) => key >= a && key <= b);
+}
+
+function parseTimes(list) {
+  return list.map(s => {
+    const [t, f = ""] = s.split(" ");
+    const [h, m] = t.split(":").map(Number);
+    return { min: h * 60 + m, flags: f };
+  });
+}
+
+// 選択中の乗り場/方面の便一覧（到着情報つき）
+function currentTrips() {
+  const stop = STOPS[state.stop];
+  if (state.stop === "minoh") {
+    const dir = stop.dirs.find(d => d.id === state.dir) || stop.dirs[0];
+    return parseTimes(dir.times).map(b => ({ ...b, dest: dir.to, ride: dir.min }));
+  }
+  const dir = stop.dirs.find(d => d.id === state.dir) || stop.dirs[0];
+  return parseTimes(stop.times)
+    .filter(b => !dir.filter || b.flags.includes(dir.filter))
+    .map(b => b.flags.includes("x")
+      ? { ...b, dest: "豊中（直行）", ride: 25 }
+      : { ...b, dest: "箕面経由 豊中", ride: 40, viaMin: 20 });
+}
+
+// 今以降の便を、運行日をまたいで最大n件
+function upcoming(n) {
+  const trips = currentTrips();
+  const out = [];
+  let day = jstDayStart(nowMs());
+  for (let i = 0; i < 60 && out.length < n; i++, day += 86400000) {
+    if (!isServiceDay(day)) continue;
+    for (const b of trips) {
+      const dep = day + b.min * 60000;
+      if (dep >= nowMs() - 30000) out.push({ ...b, dep, day });
+      if (out.length >= n) break;
+    }
+  }
+  return out;
+}
+
+function tagsHtml(b) {
+  let h = "";
+  if (b.flags.includes("x")) h += '<span class="tag exp">直</span>';
+  if (b.flags.includes("v")) h += '<span class="tag via">箕面経由</span>';
+  if (b.flags.includes("o")) h += '<span class="tag orig">当駅始発</span>';
+  if (b.flags.includes("e")) h += '<span class="tag ev">電気バス</span>';
+  return h;
+}
+
+function dayLabel(day) {
+  const today = jstDayStart(nowMs());
+  const diff = Math.round((day - today) / 86400000);
+  if (diff === 0) return "";
+  if (diff === 1) return "明日 ";
+  const d = new Date(day + JST);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${"日月火水木金土"[d.getUTCDay()]}) `;
+}
+
+// ===== 状態 =====
+const state = { stop: "minoh", dir: "toyonaka" };
+try {
+  const saved = JSON.parse(localStorage.getItem("bus-state") || "null");
+  if (saved && STOPS[saved.stop]) Object.assign(state, saved);
+} catch (e) {}
+if (STOPS[params.get("s")]) { state.stop = params.get("s"); state.dir = STOPS[state.stop].dirs[0].id; }
+function save() { try { localStorage.setItem("bus-state", JSON.stringify(state)); } catch (e) {} }
+
+function renderTabs() {
+  const tabs = document.getElementById("stopTabs");
+  tabs.innerHTML = Object.entries(STOPS).map(([id, s]) =>
+    `<button data-stop="${id}" aria-pressed="${state.stop === id}">${s.name}</button>`).join("");
+  const stop = STOPS[state.stop];
+  if (!stop.dirs.some(d => d.id === state.dir)) state.dir = stop.dirs[0].id;
+  document.getElementById("dirChips").innerHTML = stop.dirs.map(d =>
+    `<button data-dir="${d.id}" aria-pressed="${state.dir === d.id}">${d.label}</button>`).join("");
+}
+
+document.getElementById("stopTabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.stop = b.dataset.stop; state.dir = STOPS[state.stop].dirs[0].id;
+  save(); renderTabs(); tick();
+});
+document.getElementById("dirChips").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.dir = b.dataset.dir; save(); renderTabs(); tick();
+});
+
+function tick() {
+  const now = nowMs();
+  const d = new Date(now + JST);
+  document.getElementById("clock").textContent =
+    `${d.getUTCHours()}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+
+  const list = upcoming(7);
+  const hero = document.getElementById("hero");
+  const today = jstDayStart(now);
+  const next = list[0];
+
+  if (!next) {
+    hero.className = "hero";
+    hero.innerHTML = '<div class="msg">しばらく運行予定がありません</div>';
+  } else if (next.day !== today) {
+    // 今日はもう無い（運休日 or 最終便後）
+    const reason = isServiceDay(today) ? "本日の運行は終了しました" : "本日は運休です";
+    hero.className = "hero";
+    hero.innerHTML = `<div class="msg">${reason}</div>
+      <div class="dep">次は ${dayLabel(next.day)}<b>${hm(next.dep)}</b> 発 ${tagsHtml(next)}</div>
+      <div class="sub">${next.dest}行</div>`;
+  } else {
+    const sec = Math.max(0, Math.round((next.dep - now) / 1000));
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    const count = h ? `${h}<small>時間</small>${pad(m)}<small>分</small>` : `${m}<small>分</small>${pad(s)}<small>秒</small>`;
+    const arr = next.viaMin
+      ? `箕面 ${hm(next.dep + next.viaMin * 60000)} 着 → 豊中 ${hm(next.dep + next.ride * 60000)} 着予定`
+      : `${next.dest} ${hm(next.dep + next.ride * 60000)} 着予定`;
+    hero.className = "hero" + (sec <= 120 ? " soon" : "");
+    hero.innerHTML = `<div class="dep">次 <b>${hm(next.dep)}</b> 発 ${tagsHtml(next)}</div>
+      <div class="count">${sec === 0 ? "まもなく発車" : '<span class="pre">あと</span>' + count}</div>
+      <div class="sub">${arr}</div>`;
+  }
+
+  const rest = list.slice(1);
+  document.getElementById("later").innerHTML = rest.length
+    ? rest.map(b => {
+        const mins = Math.round((b.dep - now) / 60000);
+        const r = b.day !== today ? dayLabel(b.day).trim()
+          : mins >= 60 ? `${Math.floor(mins / 60)}時間${mins % 60}分後` : `${mins}分後`;
+        return `<li><span class="t">${hm(b.dep)}</span><span class="d">${tagsHtml(b)}</span><span class="r">${r}</span></li>`;
+      }).join("")
+    : '<li class="empty">このあとの便はありません</li>';
+}
+
+renderTabs();
+tick();
+setInterval(tick, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
