@@ -36,8 +36,12 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; overflow-x: hidden; overscroll-behavior: none; touch-action: pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* 上に引っ張ったときは紺、下は背景色（iOS が上端の色を拾っても紺になるように） */
+html { background: linear-gradient(var(--navy) 50%, var(--bg) 50%); }
 body {
   background: var(--bg);
+  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -45,12 +49,18 @@ body {
 }
 
 /* 掲示時刻表の紺帯 */
-.band { background: var(--navy); color: var(--on-navy); padding-top: env(safe-area-inset-top); }
+/* 上端に固定した不透明ヘッダー。iOS 26 Safari はこれを見てステータスバー部分を同じ色で塗る */
+.band { position: sticky; top: 0; z-index: 10; background: var(--navy); color: var(--on-navy); padding-top: env(safe-area-inset-top); }
 .band-in { max-width: 480px; margin: 0 auto; padding: 12px 16px 0; }
 .band-top { display: flex; justify-content: space-between; align-items: baseline; }
 h1 { font-size: 17px; margin: 0; letter-spacing: .04em; }
-h1 span { display: block; font-size: 11px; font-weight: 400; opacity: .75; letter-spacing: 0; }
+h1 .en { display: block; font-size: 11px; font-weight: 400; opacity: .75; letter-spacing: 0; }
+.band-right { display: flex; align-items: center; gap: 10px; }
 #clock { font-variant-numeric: tabular-nums; font-size: 15px; opacity: .85; }
+#langBtn {
+  border: 1px solid rgba(255,255,255,.5); background: transparent; color: var(--on-navy);
+  font: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer;
+}
 .seg { display: flex; margin-top: 10px; }
 .seg button {
   flex: 1; border: 0; background: transparent; color: var(--on-navy); font: inherit; opacity: .65;
@@ -74,6 +84,7 @@ main { max-width: 480px; margin: 0 auto; padding: 14px 16px 16px; }
 .hero .count { font-size: clamp(44px, 15vw, 64px); white-space: nowrap; font-weight: 800; line-height: 1.05; margin: 6px 0 8px; font-variant-numeric: tabular-nums; }
 .hero .count small { font-size: 20px; font-weight: 700; margin: 0 6px 0 2px; }
 .hero .count .pre { font-size: 20px; font-weight: 700; margin-right: 6px; }
+.hero .count .post { font-size: 20px; font-weight: 700; margin-left: 2px; }
 .hero .sub { color: var(--muted); font-size: 14px; }
 .hero .note { color: var(--text); font-weight: 700; margin-top: 4px; }
 .hero.soon .count { color: var(--red); animation: blink 1s steps(2, start) infinite; }
@@ -105,8 +116,11 @@ footer a { color: inherit; }
 <div class="band">
   <div class="band-in">
     <div class="band-top">
-      <h1>学内連絡バス<span>Inter Campus Shuttle Bus</span></h1>
-      <span id="clock"></span>
+      <h1><span id="title">学内連絡バス</span><span class="en">Inter Campus Shuttle Bus</span></h1>
+      <div class="band-right">
+        <button id="langBtn" type="button" lang="ko">한국어</button>
+        <span id="clock"></span>
+      </div>
     </div>
     <div class="seg" id="stopTabs" role="group" aria-label="乗り場"></div>
   </div>
@@ -116,13 +130,12 @@ footer a { color: inherit; }
 
   <section class="hero" id="hero" aria-live="polite"></section>
 
-  <h2 id="laterTitle">このあと</h2>
+  <h2 id="laterTitle"></h2>
   <ul class="list" id="later"></ul>
 
   <footer>
-    2026.04.01 改正ダイヤ。土日祝・運休日は運休。<br>
-    道路の混雑で遅れることがあります。
-    <a href="https://sairibus.com/bus/timetable/" target="_blank" rel="noopener">公式時刻表（再履バス同好会）</a>
+    <span id="footNote"></span>
+    <a href="https://sairibus.com/bus/timetable/" target="_blank" rel="noopener" id="footLink"></a>
   </footer>
 </main>
 
@@ -131,15 +144,13 @@ footer a { color: inherit; }
 // flags: x=直行, v=箕面経由, e=電気バス
 // express: 直行の所要分 / via: 箕面経由の [箕面まで, 終点まで] の所要分
 const DIRS = [
-  { id: "all", label: "すべて", filter: null },
-  { id: "express", label: "直行", filter: "x" },
-  { id: "via", label: "箕面経由", filter: "v" },
+  { id: "all", filter: null },
+  { id: "express", filter: "x" },
+  { id: "via", filter: "v" },
 ];
 const STOPS = {
   toyonaka: {
-    name: "豊中 → 吹田",
-    to: "吹田", express: 30, via: [20, 40],
-    viaNote: "箕面行の列に並んでください",
+    to: "suita", express: 30, via: [20, 40], viaNote: true,
     times: [
       "8:00 x","8:05 x","8:10 x","8:45 x","9:00 xe","9:20 v","9:45 x","9:50 x","10:40 x",
       "10:50 x","11:30 v","12:05 x","12:10 x","12:40 ve","12:45 x","12:55 x","13:35 v",
@@ -147,8 +158,7 @@ const STOPS = {
       "17:40 v","18:00 x","18:30 v","18:55 x","19:25 v","20:10 v"],
   },
   ningen: {
-    name: "人科 → 豊中",
-    to: "豊中", express: 25, via: [20, 40],
+    to: "toyonaka", express: 25, via: [20, 40],
     times: [
       "8:00 v","8:35 v","9:00 v","9:25 x","9:35 xe","10:05 v","10:45 v","11:20 v","11:25 x",
       "12:15 xe","12:20 x","12:40 x","12:45 v","13:40 ve","14:20 v","15:15 xe","15:20 x",
@@ -156,6 +166,47 @@ const STOPS = {
       "18:45 x","19:15 v","19:50 v","20:15 v","20:25 x"],
   },
 };
+
+// ===== 表示文言（日本語 / 한국어） =====
+const I18N = {
+  ja: {
+    title: "学内連絡バス", other: "한국어", otherLang: "ko",
+    stops: { toyonaka: "豊中 → 吹田", ningen: "人科 → 豊中" },
+    place: { suita: "吹田", toyonaka: "豊中", minoh: "箕面" },
+    dirs: { all: "すべて", express: "直行", via: "箕面経由" },
+    tagExp: "直", tagVia: "箕面経由", tagOrig: "当駅始発", tagEv: "電気バス",
+    viaNote: "箕面行の列に並んでください",
+    destExp: to => `${to}（直行）`, destVia: to => `箕面経由 ${to}`, destLine: d => `${d}行`,
+    next: t => `次 <b>${t}</b> 発`, nextDay: (day, t) => `次は ${day}<b>${t}</b> 発`,
+    pre: "あと", post: "", h: "時間", m: "分", s: "秒", soon: "まもなく発車",
+    arr: (place, t) => `${place} ${t} 着`, arrEnd: "予定",
+    ended: "本日の運行は終了しました", closed: "本日は運休です", none: "しばらく運行予定がありません",
+    later: "このあと", laterNone: "このあとの便はありません",
+    inMin: (h, m) => h ? `${h}時間${m}分後` : `${m}分後`,
+    tomorrow: "明日", wd: "日月火水木金土",
+    foot: "2026.04.01 改正ダイヤ。土日祝・運休日は運休。<br>道路の混雑で遅れることがあります。",
+    link: "公式時刻表（再履バス同好会）",
+  },
+  ko: {
+    title: "학내 연락버스", other: "日本語", otherLang: "ja",
+    stops: { toyonaka: "도요나카 → 스이타", ningen: "인간과학부 → 도요나카" },
+    place: { suita: "스이타", toyonaka: "도요나카", minoh: "미노오" },
+    dirs: { all: "전체", express: "직행", via: "미노오 경유" },
+    tagExp: "직행", tagVia: "미노오 경유", tagOrig: "시발", tagEv: "전기버스",
+    viaNote: "미노오행 줄에 서 주세요",
+    destExp: to => `${to} (직행)`, destVia: to => `미노오 경유 ${to}`, destLine: d => `${d}행`,
+    next: t => `다음 <b>${t}</b> 출발`, nextDay: (day, t) => `다음 ${day}<b>${t}</b> 출발`,
+    pre: "", post: "남음", h: "시간", m: "분", s: "초", soon: "곧 출발",
+    arr: (place, t) => `${place} ${t} 도착`, arrEnd: " 예정",
+    ended: "오늘 운행은 종료되었습니다", closed: "오늘은 운행하지 않습니다", none: "당분간 운행 예정이 없습니다",
+    later: "이후 버스", laterNone: "이후 버스가 없습니다",
+    inMin: (h, m) => h ? `${h}시간 ${m}분 후` : `${m}분 후`,
+    tomorrow: "내일", wd: "일월화수목금토",
+    foot: "2026.04.01 개정 시간표. 주말·공휴일·운휴일에는 운행하지 않습니다.<br>도로 혼잡으로 늦어질 수 있습니다.",
+    link: "공식 시간표 (再履バス同好会)",
+  },
+};
+let T = I18N.ja;
 
 // ===== 運休日（公式Googleカレンダーより、終了日を含む） =====
 const CLOSED_RANGES = [
@@ -206,8 +257,9 @@ function currentTrips() {
   return parseTimes(stop.times)
     .filter(b => !dir.filter || b.flags.includes(dir.filter))
     .map(b => b.flags.includes("x")
-      ? { ...b, dest: `${stop.to}（直行）`, ride: stop.express }
-      : { ...b, dest: `箕面経由 ${stop.to}`, viaMin: stop.via[0], ride: stop.via[1], note: stop.viaNote });
+      ? { ...b, dest: T.destExp(T.place[stop.to]), ride: stop.express }
+      : { ...b, dest: T.destVia(T.place[stop.to]), viaMin: stop.via[0], ride: stop.via[1],
+          note: stop.viaNote ? T.viaNote : "" });
 }
 
 // 今以降の便を、運行日をまたいで最大n件
@@ -228,10 +280,10 @@ function upcoming(n) {
 
 function tagsHtml(b) {
   let h = "";
-  if (b.flags.includes("x")) h += '<span class="tag exp">直</span>';
-  if (b.flags.includes("v")) h += '<span class="tag via">箕面経由</span>';
-  if (b.flags.includes("o")) h += '<span class="tag orig">当駅始発</span>';
-  if (b.flags.includes("e")) h += '<span class="tag ev">電気バス</span>';
+  if (b.flags.includes("x")) h += `<span class="tag exp">${T.tagExp}</span>`;
+  if (b.flags.includes("v")) h += `<span class="tag via">${T.tagVia}</span>`;
+  if (b.flags.includes("o")) h += `<span class="tag orig">${T.tagOrig}</span>`;
+  if (b.flags.includes("e")) h += `<span class="tag ev">${T.tagEv}</span>`;
   return h;
 }
 
@@ -239,28 +291,43 @@ function dayLabel(day) {
   const today = jstDayStart(nowMs());
   const diff = Math.round((day - today) / 86400000);
   if (diff === 0) return "";
-  if (diff === 1) return "明日 ";
+  if (diff === 1) return T.tomorrow + " ";
   const d = new Date(day + JST);
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${"日月火水木金土"[d.getUTCDay()]}) `;
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${T.wd[d.getUTCDay()]}) `;
 }
 
 // ===== 状態 =====
-const state = { stop: "toyonaka", dir: "all" };
+const state = { stop: "toyonaka", dir: "all",
+  lang: (navigator.language || "").toLowerCase().startsWith("ko") ? "ko" : "ja" };
 try {
   const saved = JSON.parse(localStorage.getItem("bus-state") || "null");
   if (saved && STOPS[saved.stop]) Object.assign(state, saved);
 } catch (e) {}
 if (STOPS[params.get("s")]) state.stop = params.get("s");
 if (!DIRS.some(d => d.id === state.dir)) state.dir = "all";
+if (I18N[params.get("lang")]) state.lang = params.get("lang");
+if (!I18N[state.lang]) state.lang = "ja";
 function save() { try { localStorage.setItem("bus-state", JSON.stringify(state)); } catch (e) {} }
 
 function renderTabs() {
-  const tabs = document.getElementById("stopTabs");
-  tabs.innerHTML = Object.entries(STOPS).map(([id, s]) =>
-    `<button data-stop="${id}" aria-pressed="${state.stop === id}">${s.name}</button>`).join("");
+  T = I18N[state.lang];
+  document.documentElement.lang = state.lang;
+  document.getElementById("title").textContent = T.title;
+  const langBtn = document.getElementById("langBtn");
+  langBtn.textContent = T.other;
+  langBtn.lang = T.otherLang;
+  document.getElementById("laterTitle").textContent = T.later;
+  document.getElementById("footNote").innerHTML = T.foot + " ";
+  document.getElementById("footLink").textContent = T.link;
+  document.getElementById("stopTabs").innerHTML = Object.keys(STOPS).map(id =>
+    `<button data-stop="${id}" aria-pressed="${state.stop === id}">${T.stops[id]}</button>`).join("");
   document.getElementById("dirChips").innerHTML = DIRS.map(d =>
-    `<button data-dir="${d.id}" aria-pressed="${state.dir === d.id}">${d.label}</button>`).join("");
+    `<button data-dir="${d.id}" aria-pressed="${state.dir === d.id}">${T.dirs[d.id]}</button>`).join("");
 }
+
+document.getElementById("langBtn").addEventListener("click", () => {
+  state.lang = T.otherLang; save(); renderTabs(); tick();
+});
 
 document.getElementById("stopTabs").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -285,24 +352,25 @@ function tick() {
 
   if (!next) {
     hero.className = "hero";
-    hero.innerHTML = '<div class="msg">しばらく運行予定がありません</div>';
+    hero.innerHTML = `<div class="msg">${T.none}</div>`;
   } else if (next.day !== today) {
     // 今日はもう無い（運休日 or 最終便後）
-    const reason = isServiceDay(today) ? "本日の運行は終了しました" : "本日は運休です";
+    const reason = isServiceDay(today) ? T.ended : T.closed;
     hero.className = "hero";
     hero.innerHTML = `<div class="msg">${reason}</div>
-      <div class="dep">次は ${dayLabel(next.day)}<b>${hm(next.dep)}</b> 発 ${tagsHtml(next)}</div>
-      <div class="sub">${next.dest}行</div>`;
+      <div class="dep">${T.nextDay(dayLabel(next.day), hm(next.dep))} ${tagsHtml(next)}</div>
+      <div class="sub">${T.destLine(next.dest)}</div>`;
   } else {
     const sec = Math.max(0, Math.round((next.dep - now) / 1000));
     const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
-    const count = h ? `${h}<small>時間</small>${pad(m)}<small>分</small>` : `${m}<small>分</small>${pad(s)}<small>秒</small>`;
-    const arr = next.viaMin
-      ? `箕面 ${hm(next.dep + next.viaMin * 60000)} 着 → ${STOPS[state.stop].to} ${hm(next.dep + next.ride * 60000)} 着予定`
-      : `${next.dest} ${hm(next.dep + next.ride * 60000)} 着予定`;
+    const count = h ? `${h}<small>${T.h}</small>${pad(m)}<small>${T.m}</small>` : `${m}<small>${T.m}</small>${pad(s)}<small>${T.s}</small>`;
+    const end = T.arr(next.viaMin ? T.place[STOPS[state.stop].to] : next.dest, hm(next.dep + next.ride * 60000)) + T.arrEnd;
+    const arr = next.viaMin ? `${T.arr(T.place.minoh, hm(next.dep + next.viaMin * 60000))} → ${end}` : end;
     hero.className = "hero" + (sec <= 120 ? " soon" : "");
-    hero.innerHTML = `<div class="dep">次 <b>${hm(next.dep)}</b> 発 ${tagsHtml(next)}</div>
-      <div class="count">${sec === 0 ? "まもなく発車" : '<span class="pre">あと</span>' + count}</div>
+    const pre = T.pre ? `<span class="pre">${T.pre}</span>` : "";
+    const post = T.post ? `<span class="post">${T.post}</span>` : "";
+    hero.innerHTML = `<div class="dep">${T.next(hm(next.dep))} ${tagsHtml(next)}</div>
+      <div class="count">${sec === 0 ? T.soon : pre + count + post}</div>
       <div class="sub">${arr}</div>${next.note ? `<div class="sub note">${next.note}</div>` : ""}`;
   }
 
@@ -311,10 +379,10 @@ function tick() {
     ? rest.map(b => {
         const mins = Math.round((b.dep - now) / 60000);
         const r = b.day !== today ? dayLabel(b.day).trim()
-          : mins >= 60 ? `${Math.floor(mins / 60)}時間${mins % 60}分後` : `${mins}分後`;
+          : T.inMin(Math.floor(mins / 60), mins % 60);
         return `<li><span class="t">${hm(b.dep)}</span><span class="d">${tagsHtml(b)}</span><span class="r">${r}</span></li>`;
       }).join("")
-    : '<li class="empty">このあとの便はありません</li>';
+    : `<li class="empty">${T.laterNone}</li>`;
 }
 
 renderTabs();
