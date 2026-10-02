@@ -1,5 +1,5 @@
 // 時刻表を更新したら VERSION を上げる
-const VERSION = "bus-2026-04-01-v1";
+const VERSION = "bus-2026-04-01-v3";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {

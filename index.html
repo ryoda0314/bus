@@ -2,9 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>次のバス</title>
-<meta name="description" content="阪大 学内連絡バス（箕面学舎・人間科学部前）の次の便をカウントダウン表示">
+<meta name="description" content="阪大 学内連絡バス（豊中→吹田・人間科学部前→豊中）の次の便をカウントダウン表示">
 <meta name="theme-color" content="#2b2a7a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,7 +35,7 @@
   --navy: #22205e; --on-navy: #ffffff; --red: #e0343a; --sel: #9c99f2;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; }
+html, body { margin: 0; overflow-x: hidden; overscroll-behavior: none; touch-action: pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -75,6 +75,7 @@ main { max-width: 480px; margin: 0 auto; padding: 14px 16px 16px; }
 .hero .count small { font-size: 20px; font-weight: 700; margin: 0 6px 0 2px; }
 .hero .count .pre { font-size: 20px; font-weight: 700; margin-right: 6px; }
 .hero .sub { color: var(--muted); font-size: 14px; }
+.hero .note { color: var(--text); font-weight: 700; margin-top: 4px; }
 .hero.soon .count { color: var(--red); animation: blink 1s steps(2, start) infinite; }
 .hero .msg { font-size: 20px; font-weight: 700; margin: 0 0 10px; }
 @keyframes blink { 50% { opacity: .4; } }
@@ -127,28 +128,27 @@ footer a { color: inherit; }
 
 <script>
 // ===== 時刻表データ（2026/4/1改正） =====
-// flags: o=当駅始発, e=電気バス, x=直行, v=箕面経由
+// flags: x=直行, v=箕面経由, e=電気バス
+// express: 直行の所要分 / via: 箕面経由の [箕面まで, 終点まで] の所要分
+const DIRS = [
+  { id: "all", label: "すべて", filter: null },
+  { id: "express", label: "直行", filter: "x" },
+  { id: "via", label: "箕面経由", filter: "v" },
+];
 const STOPS = {
-  minoh: {
-    name: "箕面学舎",
-    dirs: [
-      { id: "toyonaka", label: "豊中行", to: "豊中学舎", min: 20, times: [
-        "8:20","8:35 oe","8:55","9:20","10:15 o","10:25","11:05","11:40","12:35 o","13:05",
-        "14:00 e","14:40","15:10 o","15:15 o","16:05 o","16:30","16:55 oe","17:00 o","17:50",
-        "18:30 o","18:35 e","19:35","20:10","20:35"] },
-      { id: "suita", label: "吹田行", to: "吹田学舎", min: 20, times: [
-        "7:35 o","9:40","11:50","13:00 e","13:55","14:45 e","15:30","16:20","17:40 e","18:00",
-        "18:50","19:45","20:30"] },
-    ],
+  toyonaka: {
+    name: "豊中 → 吹田",
+    to: "吹田", express: 30, via: [20, 40],
+    viaNote: "箕面行の列に並んでください",
+    times: [
+      "8:00 x","8:05 x","8:10 x","8:45 x","9:00 xe","9:20 v","9:45 x","9:50 x","10:40 x",
+      "10:50 x","11:30 v","12:05 x","12:10 x","12:40 ve","12:45 x","12:55 x","13:35 v",
+      "14:25 ve","15:10 v","15:30 x","16:00 v","16:30 x","16:55 x","17:20 ve","17:25 x",
+      "17:40 v","18:00 x","18:30 v","18:55 x","19:25 v","20:10 v"],
   },
   ningen: {
-    name: "人間科学部前",
-    dirs: [
-      { id: "all", label: "豊中行 すべて", filter: null },
-      { id: "express", label: "直行", filter: "x" },
-      { id: "via", label: "箕面経由", filter: "v" },
-    ],
-    // 直行: 豊中まで25分 / 箕面経由: 箕面まで20分・豊中まで40分
+    name: "人科 → 豊中",
+    to: "豊中", express: 25, via: [20, 40],
     times: [
       "8:00 v","8:35 v","9:00 v","9:25 x","9:35 xe","10:05 v","10:45 v","11:20 v","11:25 x",
       "12:15 xe","12:20 x","12:40 x","12:45 v","13:40 ve","14:20 v","15:15 xe","15:20 x",
@@ -202,16 +202,12 @@ function parseTimes(list) {
 // 選択中の乗り場/方面の便一覧（到着情報つき）
 function currentTrips() {
   const stop = STOPS[state.stop];
-  if (state.stop === "minoh") {
-    const dir = stop.dirs.find(d => d.id === state.dir) || stop.dirs[0];
-    return parseTimes(dir.times).map(b => ({ ...b, dest: dir.to, ride: dir.min }));
-  }
-  const dir = stop.dirs.find(d => d.id === state.dir) || stop.dirs[0];
+  const dir = DIRS.find(d => d.id === state.dir) || DIRS[0];
   return parseTimes(stop.times)
     .filter(b => !dir.filter || b.flags.includes(dir.filter))
     .map(b => b.flags.includes("x")
-      ? { ...b, dest: "豊中（直行）", ride: 25 }
-      : { ...b, dest: "箕面経由 豊中", ride: 40, viaMin: 20 });
+      ? { ...b, dest: `${stop.to}（直行）`, ride: stop.express }
+      : { ...b, dest: `箕面経由 ${stop.to}`, viaMin: stop.via[0], ride: stop.via[1], note: stop.viaNote });
 }
 
 // 今以降の便を、運行日をまたいで最大n件
@@ -249,27 +245,26 @@ function dayLabel(day) {
 }
 
 // ===== 状態 =====
-const state = { stop: "minoh", dir: "toyonaka" };
+const state = { stop: "toyonaka", dir: "all" };
 try {
   const saved = JSON.parse(localStorage.getItem("bus-state") || "null");
   if (saved && STOPS[saved.stop]) Object.assign(state, saved);
 } catch (e) {}
-if (STOPS[params.get("s")]) { state.stop = params.get("s"); state.dir = STOPS[state.stop].dirs[0].id; }
+if (STOPS[params.get("s")]) state.stop = params.get("s");
+if (!DIRS.some(d => d.id === state.dir)) state.dir = "all";
 function save() { try { localStorage.setItem("bus-state", JSON.stringify(state)); } catch (e) {} }
 
 function renderTabs() {
   const tabs = document.getElementById("stopTabs");
   tabs.innerHTML = Object.entries(STOPS).map(([id, s]) =>
     `<button data-stop="${id}" aria-pressed="${state.stop === id}">${s.name}</button>`).join("");
-  const stop = STOPS[state.stop];
-  if (!stop.dirs.some(d => d.id === state.dir)) state.dir = stop.dirs[0].id;
-  document.getElementById("dirChips").innerHTML = stop.dirs.map(d =>
+  document.getElementById("dirChips").innerHTML = DIRS.map(d =>
     `<button data-dir="${d.id}" aria-pressed="${state.dir === d.id}">${d.label}</button>`).join("");
 }
 
 document.getElementById("stopTabs").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  state.stop = b.dataset.stop; state.dir = STOPS[state.stop].dirs[0].id;
+  state.stop = b.dataset.stop;
   save(); renderTabs(); tick();
 });
 document.getElementById("dirChips").addEventListener("click", e => {
@@ -303,12 +298,12 @@ function tick() {
     const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
     const count = h ? `${h}<small>時間</small>${pad(m)}<small>分</small>` : `${m}<small>分</small>${pad(s)}<small>秒</small>`;
     const arr = next.viaMin
-      ? `箕面 ${hm(next.dep + next.viaMin * 60000)} 着 → 豊中 ${hm(next.dep + next.ride * 60000)} 着予定`
+      ? `箕面 ${hm(next.dep + next.viaMin * 60000)} 着 → ${STOPS[state.stop].to} ${hm(next.dep + next.ride * 60000)} 着予定`
       : `${next.dest} ${hm(next.dep + next.ride * 60000)} 着予定`;
     hero.className = "hero" + (sec <= 120 ? " soon" : "");
     hero.innerHTML = `<div class="dep">次 <b>${hm(next.dep)}</b> 発 ${tagsHtml(next)}</div>
       <div class="count">${sec === 0 ? "まもなく発車" : '<span class="pre">あと</span>' + count}</div>
-      <div class="sub">${arr}</div>`;
+      <div class="sub">${arr}</div>${next.note ? `<div class="sub note">${next.note}</div>` : ""}`;
   }
 
   const rest = list.slice(1);
@@ -326,6 +321,11 @@ renderTabs();
 tick();
 setInterval(tick, 1000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+
+// iOS Safari は user-scalable=no を無視するので、ピンチとダブルタップの拡大を止める
+["gesturestart", "gesturechange", "gestureend"].forEach(ev =>
+  document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
