@@ -119,16 +119,41 @@ ul.list li.empty { color: var(--muted); justify-content: center; }
   margin-top: 12px; padding: 8px 16px; cursor: pointer;
   border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 14px;
 }
-.hero.ride {
-  background: var(--navy); color: #fff; border: 0;
-  margin: 14px -16px 0; padding: 18px 16px 20px;
+/* 乗るバス専用の画面（時刻表とは別画面） */
+.rideview {
+  position: fixed; inset: 0; z-index: 50; overflow-y: auto;
+  background: var(--navy); color: #fff;
+  display: flex; flex-direction: column;
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
 }
-.hero.ride .label { font-size: 13px; font-weight: 700; letter-spacing: .1em; opacity: .85; margin-bottom: 2px; }
-.hero.ride .dep, .hero.ride .sub { color: rgba(255,255,255,.8); }
-.hero.ride .dep b, .hero.ride .note { color: #fff; }
-.hero.ride .tag.via, .hero.ride .tag.ev { color: #fff; border-color: rgba(255,255,255,.5); }
-.hero.ride.soon .count { color: #ff8a8f; }
-.hero.ride .act { color: #fff; border-color: rgba(255,255,255,.6); }
+.rideview[hidden] { display: none; }
+.rv-top { display: flex; justify-content: space-between; align-items: center; }
+.rv-label { font-size: 13px; font-weight: 700; letter-spacing: .12em; opacity: .8; }
+.rv-top button {
+  border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff;
+  font: inherit; font-size: 13px; padding: 6px 10px; cursor: pointer;
+}
+.rv-main { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 24px 0; }
+.rv-stop { font-size: 16px; opacity: .85; }
+.rv-dep { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.rv-dep small { font-size: 18px; font-weight: 700; margin-left: 4px; }
+.rv-tags { display: flex; gap: 6px; justify-content: center; margin-top: 6px; min-height: 22px; }
+.rv-tags .tag.via, .rv-tags .tag.ev { color: #fff; border-color: rgba(255,255,255,.5); }
+.rv-count {
+  font-size: clamp(56px, 20vw, 96px); font-weight: 800; line-height: 1; white-space: nowrap;
+  font-variant-numeric: tabular-nums; margin: 28px 0 12px;
+}
+.rv-count small { font-size: 22px; font-weight: 700; margin: 0 6px 0 2px; }
+.rv-count .pre, .rv-count .post { font-size: 22px; font-weight: 700; }
+.rv-count .pre { margin-right: 6px; }
+.rv-sub { font-size: 15px; opacity: .85; }
+.rv-note { display: inline-block; margin: 14px auto 0; padding: 8px 12px; border: 1px solid rgba(255,255,255,.6); font-weight: 700; }
+.rideview.soon .rv-count { color: #ff8a8f; animation: blink 1s steps(2, start) infinite; }
+@media (prefers-reduced-motion: reduce) { .rideview.soon .rv-count { animation: none; } }
+.rv-cancel {
+  width: 100%; padding: 14px; cursor: pointer; font: inherit; font-size: 15px;
+  border: 1px solid rgba(255,255,255,.6); background: transparent; color: #fff;
+}
 .ridebar {
   display: block; width: 100%; margin-top: 14px; padding: 10px 12px; cursor: pointer; text-align: left;
   border: 0; background: var(--navy); color: #fff; font: inherit; font-size: 14px;
@@ -173,6 +198,8 @@ footer a { color: inherit; }
     <a href="https://sairibus.com/bus/timetable/" target="_blank" rel="noopener" id="footLink"></a>
   </footer>
 </main>
+
+<section class="rideview" id="rideView" hidden aria-live="polite"></section>
 
 <script>
 // ===== 時刻表データ（2026/4/1改正） =====
@@ -226,8 +253,9 @@ const I18N = {
     ended: "本日の運行は終了しました", closed: "本日は運休です", none: "しばらく運行予定がありません",
     later: "このあと", laterNone: "このあとの便はありません",
     more: n => `すべて表示（あと${n}便）`, less: "閉じる",
-    rideBtn: "これに乗る", rideLabel: "乗るバス", unride: "やめる", rideShort: "乗る",
-    ridePlan: (stop, t, left) => `乗る予定：${stop} ${t} 発（${left}）`,
+    rideBtn: "これに乗る", rideLabel: "乗るバス", unride: "このバスをやめる", rideShort: "乗る",
+    toTable: "時刻表", dep: "発",
+    ridePlan: (stop, t, left) => `乗るバス：${stop} ${t} 発（${left}）　開く`,
     inMin: (h, m) => h ? `${h}時間${m}分後` : `${m}分後`,
     tomorrow: "明日", wd: "日月火水木金土",
     foot: "2026.04.01 改正ダイヤ。土日祝・運休日は運休。<br>道路の混雑で遅れることがあります。",
@@ -247,8 +275,9 @@ const I18N = {
     ended: "오늘 운행은 종료되었습니다", closed: "오늘은 운행하지 않습니다", none: "당분간 운행 예정이 없습니다",
     later: "이후 버스", laterNone: "이후 버스가 없습니다",
     more: n => `전체 보기 (${n}대 더)`, less: "접기",
-    rideBtn: "이 버스 타기", rideLabel: "탈 버스", unride: "취소", rideShort: "타기",
-    ridePlan: (stop, t, left) => `탈 예정: ${stop} ${t} 출발 (${left})`,
+    rideBtn: "이 버스 타기", rideLabel: "탈 버스", unride: "이 버스 취소", rideShort: "타기",
+    toTable: "시간표", dep: "출발",
+    ridePlan: (stop, t, left) => `탈 버스: ${stop} ${t} 출발 (${left})  열기`,
     inMin: (h, m) => h ? `${h}시간 ${m}분 후` : `${m}분 후`,
     tomorrow: "내일", wd: "일월화수목금토",
     foot: "2026.04.01 개정 시간표. 주말·공휴일·운휴일에는 운행하지 않습니다.<br>도로 혼잡으로 늦어질 수 있습니다.",
@@ -388,13 +417,21 @@ document.getElementById("moreBtn").addEventListener("click", () => { expanded = 
 
 // 「これに乗る」「やめる」「乗る予定」バーのクリック
 document.addEventListener("click", e => {
-  const b = e.target.closest("[data-ride], [data-unride], [data-goto]");
+  const b = e.target.closest("[data-ride], [data-unride], [data-open], [data-close]");
   if (!b) return;
-  if (b.dataset.ride) state.ride = { stop: state.stop, dep: Number(b.dataset.ride) };
-  else if (b.dataset.unride !== undefined) state.ride = null;
-  else { state.stop = b.dataset.goto; state.dir = "all"; expanded = false; renderTabs(); }
+  if (b.dataset.ride) {
+    state.ride = { stop: state.stop, dep: Number(b.dataset.ride) };
+    state.rideOpen = true;
+  } else if (b.dataset.unride !== undefined) {
+    state.ride = null; state.rideOpen = false;
+  } else if (b.dataset.open !== undefined) {
+    state.rideOpen = true;
+  } else {
+    // 時刻表に戻るときは、乗るバスの乗り場を開く
+    state.rideOpen = false;
+    if (state.ride) { state.stop = state.ride.stop; expanded = false; renderTabs(); }
+  }
   save(); tick();
-  if (b.dataset.ride) window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 document.getElementById("langBtn").addEventListener("click", () => {
@@ -427,19 +464,22 @@ function tick() {
   const ride = rideTrip();
   const rideHere = ride && state.ride.stop === state.stop;
 
-  // 別の乗り場の便を選んでいるときは上にバーを出す
+  // 乗るバスの専用画面。閉じているときは時刻表の上にバーで出す
+  const rideView = document.getElementById("rideView");
   const rideBar = document.getElementById("rideBar");
-  rideBar.hidden = !ride || rideHere;
-  if (ride && !rideHere) {
+  const open = !!(ride && state.rideOpen);
+  rideView.hidden = !open;
+  document.body.style.overflow = open ? "hidden" : "";
+  rideBar.hidden = !ride || open;
+  if (open) renderRideView(rideView, ride, now);
+  if (ride && !open) {
     const mins = Math.max(0, Math.round((ride.dep - now) / 60000));
     const left = ride.day !== today ? dayLabel(ride.day).trim() : T.inMin(Math.floor(mins / 60), mins % 60);
-    rideBar.dataset.goto = state.ride.stop;
+    rideBar.dataset.open = "";
     rideBar.textContent = T.ridePlan(T.stops[state.ride.stop].join(" "), hm(ride.dep), left);
   }
 
-  if (rideHere) {
-    renderCountdown(hero, ride, now, true);
-  } else if (!next) {
+  if (!next) {
     hero.className = "hero";
     hero.innerHTML = `<div class="msg">${T.none}</div>`;
   } else if (next.day !== today) {
@@ -450,11 +490,10 @@ function tick() {
       <div class="dep">${T.nextDay(dayLabel(next.day), hm(next.dep))} ${tagsHtml(next)}</div>
       <div class="sub">${T.destLine(next.dest)}</div>`;
   } else {
-    renderCountdown(hero, next, now, false);
+    renderCountdown(hero, next, now);
   }
 
-  // 乗る便を表示中は「次」の便も一覧に残す
-  const rest = rideHere ? list : list.slice(1);
+  const rest = list.slice(1);
   document.getElementById("later").innerHTML = rest.length
     ? rest.map(b => {
         const mins = Math.round((b.dep - now) / 60000);
@@ -474,26 +513,48 @@ function tick() {
   moreBtn.textContent = expanded ? T.less : T.more(hiddenCount);
 }
 
-// 大きいカウントダウン表示。riding=true なら「乗るバス」として目立たせる
-function renderCountdown(hero, next, now, riding) {
-    const sec = Math.max(0, Math.round((next.dep - now) / 1000));
-    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
-    const count = h ? `${h}<small>${T.h}</small>${pad(m)}<small>${T.m}</small>` : `${m}<small>${T.m}</small>${pad(s)}<small>${T.s}</small>`;
-    const end = T.arr(next.viaMin ? T.place[STOPS[state.stop].to] : next.dest, hm(next.dep + next.ride * 60000)) + T.arrEnd;
-    const arr = next.viaMin ? `${T.arr(T.place.minoh, hm(next.dep + next.viaMin * 60000))} → ${end}` : end;
-    hero.className = "hero" + (riding ? " ride" : "") + (sec <= 120 ? " soon" : "");
-    const pre = T.pre ? `<span class="pre">${T.pre}</span>` : "";
-    const post = T.post ? `<span class="post">${T.post}</span>` : "";
-    const head = riding
-      ? `<div class="label">${T.rideLabel}</div><div class="dep">${dayLabel(next.day)}<b>${hm(next.dep)}</b> ${tagsHtml(next)}</div>`
-      : `<div class="dep">${T.next(hm(next.dep))} ${tagsHtml(next)}</div>`;
-    const btn = riding
-      ? `<button class="act" type="button" data-unride>${T.unride}</button>`
-      : `<button class="act" type="button" data-ride="${next.dep}">${T.rideBtn}</button>`;
-    hero.innerHTML = `${head}
-      <div class="count">${sec === 0 ? T.soon : pre + count + post}</div>
-      <div class="sub">${arr}</div>${next.note ? `<div class="sub note">${next.note}</div>` : ""}
-      ${btn}`;
+// 「あと◯分◯秒」の中身
+function countHtml(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const count = h ? `${h}<small>${T.h}</small>${pad(m)}<small>${T.m}</small>` : `${m}<small>${T.m}</small>${pad(s)}<small>${T.s}</small>`;
+  const pre = T.pre ? `<span class="pre">${T.pre}</span>` : "";
+  const post = T.post ? `<span class="post">${T.post}</span>` : "";
+  return sec === 0 ? T.soon : pre + count + post;
+}
+
+// 到着予定の文
+function arrText(b, stopId) {
+  const end = T.arr(b.viaMin ? T.place[STOPS[stopId].to] : b.dest, hm(b.dep + b.ride * 60000)) + T.arrEnd;
+  return b.viaMin ? `${T.arr(T.place.minoh, hm(b.dep + b.viaMin * 60000))} → ${end}` : end;
+}
+
+// 時刻表の上の大きいカウントダウン
+function renderCountdown(hero, next, now) {
+  const sec = Math.max(0, Math.round((next.dep - now) / 1000));
+  hero.className = "hero" + (sec <= 120 ? " soon" : "");
+  hero.innerHTML = `<div class="dep">${T.next(hm(next.dep))} ${tagsHtml(next)}</div>
+    <div class="count">${countHtml(sec)}</div>
+    <div class="sub">${arrText(next, state.stop)}</div>${next.note ? `<div class="sub note">${next.note}</div>` : ""}
+    <button class="act" type="button" data-ride="${next.dep}">${T.rideBtn}</button>`;
+}
+
+// 乗るバスの専用画面
+function renderRideView(view, ride, now) {
+  const sec = Math.max(0, Math.round((ride.dep - now) / 1000));
+  view.className = "rideview" + (sec <= 120 ? " soon" : "");
+  view.innerHTML = `<div class="rv-top">
+      <span class="rv-label">${T.rideLabel}</span>
+      <button type="button" data-close>${T.toTable}</button>
+    </div>
+    <div class="rv-main">
+      <div class="rv-stop">${T.stops[state.ride.stop].join(" ")}</div>
+      <div class="rv-dep">${dayLabel(ride.day)}${hm(ride.dep)}<small>${T.dep}</small></div>
+      <div class="rv-tags">${tagsHtml(ride)}</div>
+      <div class="rv-count">${countHtml(sec)}</div>
+      <div class="rv-sub">${arrText(ride, state.ride.stop)}</div>
+      ${ride.note ? `<div class="rv-note">${ride.note}</div>` : ""}
+    </div>
+    <button class="rv-cancel" type="button" data-unride>${T.unride}</button>`;
 }
 
 renderTabs();
