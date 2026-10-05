@@ -108,6 +108,11 @@ ul.list .t { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nu
 ul.list .d { flex: 1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 ul.list .r { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 ul.list li.empty { color: var(--muted); justify-content: center; }
+.more {
+  display: block; width: 100%; margin-top: 10px; padding: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 14px;
+}
+.more[hidden] { display: none; }
 
 footer { color: var(--muted); font-size: 12px; margin: 20px 0 8px; line-height: 1.7; }
 footer a { color: inherit; }
@@ -133,6 +138,7 @@ footer a { color: inherit; }
 
   <h2 id="laterTitle"></h2>
   <ul class="list" id="later"></ul>
+  <button class="more" id="moreBtn" type="button" hidden></button>
 
   <footer>
     <span id="footNote"></span>
@@ -191,6 +197,7 @@ const I18N = {
     arr: (place, t) => `${place} ${t} 着`, arrEnd: "予定",
     ended: "本日の運行は終了しました", closed: "本日は運休です", none: "しばらく運行予定がありません",
     later: "このあと", laterNone: "このあとの便はありません",
+    more: n => `すべて表示（あと${n}便）`, less: "閉じる",
     inMin: (h, m) => h ? `${h}時間${m}分後` : `${m}分後`,
     tomorrow: "明日", wd: "日月火水木金土",
     foot: "2026.04.01 改正ダイヤ。土日祝・運休日は運休。<br>道路の混雑で遅れることがあります。",
@@ -209,6 +216,7 @@ const I18N = {
     arr: (place, t) => `${place} ${t} 도착`, arrEnd: " 예정",
     ended: "오늘 운행은 종료되었습니다", closed: "오늘은 운행하지 않습니다", none: "당분간 운행 예정이 없습니다",
     later: "이후 버스", laterNone: "이후 버스가 없습니다",
+    more: n => `전체 보기 (${n}대 더)`, less: "접기",
     inMin: (h, m) => h ? `${h}시간 ${m}분 후` : `${m}분 후`,
     tomorrow: "내일", wd: "일월화수목금토",
     foot: "2026.04.01 개정 시간표. 주말·공휴일·운휴일에는 운행하지 않습니다.<br>도로 혼잡으로 늦어질 수 있습니다.",
@@ -334,18 +342,22 @@ function renderTabs() {
     `<button data-dir="${d.id}" aria-pressed="${state.dir === d.id}">${T.dirs[d.id]}</button>`).join("");
 }
 
+const SHORT = 7; // 普段表示する便数（先頭の「次」を含む）
+let expanded = false;
+document.getElementById("moreBtn").addEventListener("click", () => { expanded = !expanded; tick(); });
+
 document.getElementById("langBtn").addEventListener("click", () => {
   state.lang = T.otherLang; save(); renderTabs(); tick();
 });
 
 document.getElementById("stopTabs").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  state.stop = b.dataset.stop;
+  state.stop = b.dataset.stop; expanded = false;
   save(); renderTabs(); tick();
 });
 document.getElementById("dirChips").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  state.dir = b.dataset.dir; save(); renderTabs(); tick();
+  state.dir = b.dataset.dir; expanded = false; save(); renderTabs(); tick();
 });
 
 function tick() {
@@ -354,7 +366,10 @@ function tick() {
   document.getElementById("clock").textContent =
     `${d.getUTCHours()}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 
-  const list = upcoming(7);
+  // 次の便と同じ運行日の便すべて。普段はその先頭 SHORT 件だけ見せる
+  const all = upcoming(200);
+  const sameDay = all.filter(b => all.length && b.day === all[0].day);
+  const list = expanded ? sameDay : all.slice(0, SHORT);
   const hero = document.getElementById("hero");
   const today = jstDayStart(now);
   const next = list[0];
@@ -392,6 +407,11 @@ function tick() {
         return `<li><span class="t">${hm(b.dep)}</span><span class="d">${tagsHtml(b)}</span><span class="r">${r}</span></li>`;
       }).join("")
     : `<li class="empty">${T.laterNone}</li>`;
+
+  const moreBtn = document.getElementById("moreBtn");
+  const hiddenCount = sameDay.length - Math.min(SHORT, sameDay.length);
+  moreBtn.hidden = !expanded && hiddenCount <= 0;
+  moreBtn.textContent = expanded ? T.less : T.more(hiddenCount);
 }
 
 renderTabs();
