@@ -150,10 +150,12 @@ ul.list li.empty { color: var(--muted); justify-content: center; }
 .rv-note { display: inline-block; margin: 14px auto 0; padding: 8px 12px; border: 1px solid rgba(255,255,255,.6); font-weight: 700; }
 .rideview.soon .rv-count { color: #ff8a8f; animation: blink 1s steps(2, start) infinite; }
 @media (prefers-reduced-motion: reduce) { .rideview.soon .rv-count { animation: none; } }
-.rv-cancel {
+.rv-cancel, .rv-widget {
   width: 100%; padding: 14px; cursor: pointer; font: inherit; font-size: 15px;
   border: 1px solid rgba(255,255,255,.6); background: transparent; color: #fff;
 }
+.rv-widget { margin-bottom: 10px; background: #fff; color: var(--navy); border-color: #fff; font-weight: 700; }
+.rv-widget.sent { background: transparent; color: #fff; font-weight: 400; }
 .ridebar {
   display: block; width: 100%; margin-top: 14px; padding: 10px 12px; cursor: pointer; text-align: left;
   border: 0; background: var(--navy); color: #fff; font: inherit; font-size: 14px;
@@ -255,6 +257,7 @@ const I18N = {
     more: n => `すべて表示（あと${n}便）`, less: "閉じる",
     rideBtn: "これに乗る", rideLabel: "乗るバス", unride: "このバスをやめる", rideShort: "乗る",
     toTable: "時刻表", dep: "発",
+    widget: "ロック画面のウィジェットに表示", widgetSent: "ウィジェットに表示中（もう一度送る）",
     ridePlan: (stop, t, left) => `乗るバス：${stop} ${t} 発（${left}）　開く`,
     inMin: (h, m) => h ? `${h}時間${m}分後` : `${m}分後`,
     tomorrow: "明日", wd: "日月火水木金土",
@@ -277,6 +280,7 @@ const I18N = {
     more: n => `전체 보기 (${n}대 더)`, less: "접기",
     rideBtn: "이 버스 타기", rideLabel: "탈 버스", unride: "이 버스 취소", rideShort: "타기",
     toTable: "시간표", dep: "출발",
+    widget: "잠금 화면 위젯에 표시", widgetSent: "위젯에 표시 중 (다시 보내기)",
     ridePlan: (stop, t, left) => `탈 버스: ${stop} ${t} 출발 (${left})  열기`,
     inMin: (h, m) => h ? `${h}시간 ${m}분 후` : `${m}분 후`,
     tomorrow: "내일", wd: "일월화수목금토",
@@ -387,7 +391,22 @@ if (I18N[params.get("lang")]) state.lang = params.get("lang");
 if (!I18N[state.lang]) state.lang = "ja";
 function save() { try { localStorage.setItem("bus-state", JSON.stringify(state)); } catch (e) {} }
 
-// 「これに乗る」で選んだ便（state.ride = { stop, dep }）。発車1分後に自動で解除
+// Scriptable のウィジェット（widget/BusRide.js）に選んだ便を渡す
+const IS_IOS = params.get("ios") === "1" || /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const WIDGET_URL = "scriptable:///run/BusRide";
+function widgetUrl(ride, stopId) {
+  const k = [ride.flags.includes("x") && T.dirs.express, ride.flags.includes("v") && T.dirs.via,
+    ride.flags.includes("e") && T.tagEv].filter(Boolean).join(" ");
+  const q = {
+    dep: String(ride.dep), time: hm(ride.dep), s: T.stops[stopId].join(" "),
+    k, a: arrText(ride, stopId), n: ride.note || "", l: state.lang,
+  };
+  // 空白は「+」ではなく %20 にする（Scriptable は + を空白に戻さない）
+  return `${WIDGET_URL}?` + Object.entries(q).map(([key, v]) => `${key}=${encodeURIComponent(v)}`).join("&");
+}
+
+// 「これに乗る」で選んだ便（state.ride = { stop, dep, sent }）。発車1分後に自動で解除
 function rideTrip() {
   const r = state.ride;
   if (!r || !STOPS[r.stop]) return null;
@@ -417,8 +436,19 @@ document.getElementById("moreBtn").addEventListener("click", () => { expanded = 
 
 // 「これに乗る」「やめる」「乗る予定」バーのクリック
 document.addEventListener("click", e => {
-  const b = e.target.closest("[data-ride], [data-unride], [data-open], [data-close]");
+  const b = e.target.closest("[data-ride], [data-unride], [data-open], [data-close], [data-widget]");
   if (!b) return;
+  if (b.dataset.widget !== undefined) {
+    const ride = rideTrip();
+    if (!ride) return;
+    state.ride.sent = true; save();
+    location.href = widgetUrl(ride, state.ride.stop);
+    return;
+  }
+  if (b.dataset.unride !== undefined && state.ride && state.ride.sent && IS_IOS) {
+    // ウィジェットに送っていた便なら、ウィジェット側も消す
+    location.href = `${WIDGET_URL}?clear=1&l=${state.lang}`;
+  }
   if (b.dataset.ride) {
     state.ride = { stop: state.stop, dep: Number(b.dataset.ride) };
     state.rideOpen = true;
@@ -554,6 +584,7 @@ function renderRideView(view, ride, now) {
       <div class="rv-sub">${arrText(ride, state.ride.stop)}</div>
       ${ride.note ? `<div class="rv-note">${ride.note}</div>` : ""}
     </div>
+    ${IS_IOS ? `<button class="rv-widget${state.ride.sent ? " sent" : ""}" type="button" data-widget>${state.ride.sent ? T.widgetSent : T.widget}</button>` : ""}
     <button class="rv-cancel" type="button" data-unride>${T.unride}</button>`;
 }
 
