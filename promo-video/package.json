@@ -1,0 +1,24 @@
+{
+  "name": "bus-promo-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "「次のバス」（学内連絡バスのカウントダウン）の紹介動画",
+  "type": "module",
+  "scripts": {
+    "sync": "node sync_app.mjs",
+    "audio": "python make_audio.py",
+    "studio": "node sync_app.mjs && remotion studio src/index.js",
+    "frames": "node sync_app.mjs && node preview_frames.mjs",
+    "render": "node sync_app.mjs && python make_audio.py && node render.mjs",
+    "model": "node model/export.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.481",
+    "@remotion/cli": "4.0.481",
+    "@remotion/renderer": "4.0.481",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.481",
+    "three": "^0.169.0"
+  }
+}

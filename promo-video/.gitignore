@@ -1,0 +1,12 @@
+node_modules/
+out/
+# sync_app.mjs がアプリ本体（../index.html など）からコピーする
+public/app/
+# make_audio.py が作る
+public/audio/
+
+# sync_app.mjs が index.html から書き出す
+src/timetable.json
+__pycache__/
+# model/export_iphone.py が .blend から書き出す（3Dモデルは配布元のライセンスを確かめるまで git に入れない）
+public/model/
