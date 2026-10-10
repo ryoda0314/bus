@@ -10,3 +10,5 @@ src/timetable.json
 __pycache__/
 # model/export_iphone.py が .blend から書き出す（3Dモデルは配布元のライセンスを確かめるまで git に入れない）
 public/model/
+# make_qr.py が作る
+public/web/

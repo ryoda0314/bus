@@ -11,9 +11,9 @@ BGM は 120 BPM・4/4。1小節 = 2秒 = 60フレームで、小節 b の頭は 
   2小節     ドロップ（王道進行 IV–V–iii–vi がフルで始まる）
   12小節    早送り：スネアのロールとライザーで持ち上げる
   13小節    発車2分前の一撃
-  14–15小節 ブレイク（ロック画面）：ドラムが抜ける
-  16小節    戻る
-  19小節    最後の一打（38秒）。あとは余韻
+  14–16小節 ブレイク（ロック画面のライブアクティビティ → Dynamic Island）：ドラムが抜ける
+  17小節    戻る
+  20小節    最後の一打（40秒）。あとは余韻
 """
 import os
 import sys
@@ -28,7 +28,7 @@ SR = 48000
 BPM = 120
 BEAT = 60 / BPM          # 0.5 s
 BAR = BEAT * 4           # 2.0 s
-TOTAL = 42.0             # 書き出す長さ（動画は 41 秒）
+TOTAL = 44.0             # 書き出す長さ（動画は 43 秒）
 N = int(SR * TOTAL)
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "public", "audio")
@@ -276,16 +276,16 @@ CHORDS = {
     2: [(0, "Gmaj7")], 3: [(0, "A")], 4: [(0, "F#m7")], 5: [(0, "Bm7")],
     6: [(0, "Gmaj7")], 7: [(0, "A")], 8: [(0, "F#m7")], 9: [(0, "Bm7")],
     10: [(0, "Gmaj7")], 11: [(0, "A")], 12: [(0, "F#m7")], 13: [(0, "Bm7")],
-    14: [(0, "Em7")], 15: [(0, "Asus4"), (2, "A")],
-    16: [(0, "Gmaj7")], 17: [(0, "F#m7"), (2, "Bm7")], 18: [(0, "Em7"), (2, "A7")],
-    19: [(0, "D")],
+    14: [(0, "Em7")], 15: [(0, "F#m7")], 16: [(0, "Asus4"), (2, "A")],
+    17: [(0, "Gmaj7")], 18: [(0, "F#m7"), (2, "Bm7")], 19: [(0, "Em7"), (2, "A7")],
+    20: [(0, "D")],
 }
 VOICE = {
     "Gmaj7": [55, 59, 62, 66], "A": [57, 61, 64, 69], "Asus4": [57, 62, 64, 69], "F#m7": [54, 57, 61, 64],
     "Bm7": [57, 62, 66, 71], "Em7": [55, 59, 62, 64], "A7": [55, 61, 64, 69], "D": [50, 57, 62, 64, 66, 69],
 }
 ROOT_NOTE = {"Gmaj7": 43, "A": 45, "Asus4": 45, "F#m7": 42, "Bm7": 35, "Em7": 40, "A7": 45, "D": 38}
-SECTION = {0: "intro", 1: "intro", 12: "build", 14: "break", 15: "break", 19: "final"}
+SECTION = {0: "intro", 1: "intro", 12: "build", 14: "break", 15: "break", 16: "break", 20: "final"}
 
 
 def section(b):
@@ -320,11 +320,12 @@ MELODY = {
     12: [(k * .5, m, .5) for k, m in enumerate([78, 81, 85, 88, 81, 85, 88, 90])],
     13: [(0, 83, 2), (2, 86, 1), (3, 85, 1)],
     14: [(0, 79, 1.5), (1.5, 78, .5), (2, 76, 2)],
-    15: [(0, 74, 1), (1, 76, 1), (2, 81, 1), (3, 73, 1)],
-    16: HOOK_A[0],
-    17: [(0, 85, 1), (1, 81, 1), (2, 83, 1), (3, 78, 1)],
-    18: [(0, 83, 1), (1, 79, .5), (1.5, 76, .5), (2, 85, 1), (3, 88, .5), (3.5, 85, .5)],
-    19: [(0, 86, 4), (0, 90, 3), (.25, 93, 2.5), (.5, 98, 2)],
+    15: [(0, 76, 1), (1, 78, 1), (2, 81, 2)],
+    16: [(0, 74, 1), (1, 76, 1), (2, 81, 1), (3, 73, 1)],
+    17: HOOK_A[0],
+    18: [(0, 85, 1), (1, 81, 1), (2, 83, 1), (3, 78, 1)],
+    19: [(0, 83, 1), (1, 79, .5), (1.5, 76, .5), (2, 85, 1), (3, 88, .5), (3.5, 85, .5)],
+    20: [(0, 86, 4), (0, 90, 3), (.25, 93, 2.5), (.5, 98, 2)],
 }
 
 
@@ -332,7 +333,7 @@ def build_bgm():
     drums, bassb, keys, bells, pads, fx = Bus(), Bus(), Bus(), Bus(), Bus(), Bus()
     kicks = []  # サイドチェイン用
 
-    for b in range(20):
+    for b in range(21):
         sec = section(b)
         # ── ドラム ──
         if sec == "intro":
@@ -343,7 +344,7 @@ def build_bgm():
                     drums.add(at(b, k + .5), tick(False, 0.32), pan=-0.1)
         elif sec in ("groove", "build"):
             kb = [0, 1, 2, 3] if sec == "build" else ([0, 2, 3.5] if b % 2 == 1 else [0, 2])
-            if b == 18:
+            if b == 19:
                 kb = [0, 2, 3.5]
             for k in kb:
                 drums.add(at(b, k), kick(0.95))
@@ -367,7 +368,7 @@ def build_bgm():
         elif sec == "break":
             for k in range(16):
                 drums.add(at(b, k * .25), shaker(0.42 if k % 4 == 2 else 0.22, seed=b * 16 + k), pan=-0.35)
-            if b == 15:  # 戻る直前のフィル
+            if b == 16:  # 戻る直前のフィル
                 for k, v in enumerate((0.35, 0.5, 0.68, 0.9)):
                     drums.add(at(b, 3 + k * .25), snare(v * 0.8, seed=90 + k))
         elif sec == "final":
@@ -375,8 +376,8 @@ def build_bgm():
             kicks.append(at(b, 0))
 
         # クラッシュ（区切り）
-        if b in (2, 13, 16, 19):
-            drums.add(at(b, 0), crash(0.55 if b != 19 else 0.7, seed=b), pan=-0.2)
+        if b in (2, 13, 17, 20):
+            drums.add(at(b, 0), crash(0.55 if b != 20 else 0.7, seed=b), pan=-0.2)
 
         # ── ベース ──
         if sec in ("groove", "build", "final", "break"):
@@ -444,8 +445,8 @@ def build_bgm():
     fx.add(at(12, 0), riser(BAR, seed=13), gain=0.5)
     fx.add(at(13, 0), impact(seed=6, size=0.7), gain=0.5)
     rev = crash(0.5, seed=77)[: int(SR * 1.0)][::-1]  # 逆再生のシンバルで戻りを予告
-    fx.add(at(16, 0) - len(rev) / SR, rev * np.linspace(0, 1, len(rev)) ** 2, pan=0.2, gain=0.8)
-    fx.add(at(19, 0), impact(seed=8, size=1.3), gain=0.8)
+    fx.add(at(17, 0) - len(rev) / SR, rev * np.linspace(0, 1, len(rev)) ** 2, pan=0.2, gain=0.8)
+    fx.add(at(20, 0), impact(seed=8, size=1.3), gain=0.8)
 
     return drums, bassb, keys, bells, pads, fx, kicks
 
@@ -490,7 +491,7 @@ def mix_bgm():
     pad_l = (pl * (1 - open_) + pl_b * open_) * duck
     pad_r = (pr * (1 - open_) + pr_b * open_) * duck
     # イントロはふわっと入る。ブレイクで少し前に出る
-    pad_gain = np.clip(t / 2.2, 0, 1) ** 1.5 * (1 + 0.5 * ((t >= at(14)) & (t < at(16))))
+    pad_gain = np.clip(t / 2.2, 0, 1) ** 1.5 * (1 + 0.5 * ((t >= at(14)) & (t < at(17))))
     pad_l *= pad_gain
     pad_r *= pad_gain
 
@@ -539,13 +540,13 @@ def mix_bgm():
     R = sum(s[1] for s in stems.values())
 
     # 最後の一打のあとは 2.6 秒で消える
-    fade = np.clip(1 - (t - at(19) - 0.5) / 2.6, 0, 1) ** 1.3
+    fade = np.clip(1 - (t - at(20) - 0.5) / 2.6, 0, 1) ** 1.3
     L = fft_filter(L * fade, lo=28)
     R = fft_filter(R * fade, lo=28)
 
     # 全体：聴感 RMS を揃えてから、やわらかく頭を抑える
     # （効果音を上に重ねるので、曲だけで -14.5 LUFS 前後・ピーク -1.5dB に収める）
-    g = 10 ** ((-16.5 - loud_db(L, R, at(2), at(19))) / 20)
+    g = 10 ** ((-16.5 - loud_db(L, R, at(2), at(20))) / 20)
     L, R = L * g, R * g
     L = np.tanh(L / 0.9) * 0.9
     R = np.tanh(R / 0.9) * 0.9
@@ -556,7 +557,7 @@ def mix_bgm():
 
     for name, (l, r) in stems.items():
         print(f"  {name:6s} {loud_db(l * g, r * g):6.1f} dB（聴感、2〜12小節）")
-    for a, b, label in ((0, 2, "イントロ"), (2, 12, "ドロップ後"), (12, 14, "早送り〜一打"), (14, 16, "ブレイク"), (16, 19, "戻り"), (19, 20.5, "余韻")):
+    for a, b, label in ((0, 2, "イントロ"), (2, 12, "ドロップ後"), (12, 14, "早送り〜一打"), (14, 17, "ブレイク"), (17, 20, "戻り"), (20, 21.5, "余韻")):
         print(f"  {label:8s} {loud_db(L, R, at(a), at(b)):6.1f} dB")
     return L, R
 
@@ -723,9 +724,9 @@ def draw_check(L, R, path):
             c = int(np.clip((v + 10) / 70, 0, 1) * 255)
             img.putpixel((x, H - 1 - yy), (c, int(c * 0.75), 255 - c // 2 if c else 30))
     # 小節線
-    for b in range(21):
+    for b in range(22):
         x = int(at(b) / TOTAL * W)
-        dr.line([(x, 0), (x, H)], fill=(255, 80, 80) if b in (2, 12, 13, 14, 16, 19) else (70, 70, 90))
+        dr.line([(x, 0), (x, H)], fill=(255, 80, 80) if b in (2, 12, 13, 14, 17, 20) else (70, 70, 90))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     img.save(path)
     print(f"wrote {os.path.relpath(path, HERE)}")

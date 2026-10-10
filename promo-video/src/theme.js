@@ -18,15 +18,19 @@ export const T = {
   ride: 600, //   20.0s 03 これに乗る
   ff: 720, //     24.0s    早送り（スネアのロール）
   red: 780, //    26.0s    発車2分前で赤く点滅（一撃）
-  lock: 840, //   28.0s 04 ロック画面のウィジェット（ブレイク）
-  more: 960, //   32.0s ほかにも（日本語/한국어・運休日・ホーム画面）
-  end: 1080, //   36.0s エンドカード
-  final: 1140, // 38.0s 曲の最後の一打
-  total: 1230, // 41.0s
+  lock: 840, //   28.0s 04 ロック画面のライブアクティビティ（ブレイク）
+  island: 945, // 31.5s    ロックを解除 → Dynamic Island
+  more: 1020, //  34.0s ほかにも（日本語/한국어・運休日・ホーム画面のウィジェット）
+  end: 1140, //   38.0s エンドカード
+  final: 1200, // 40.0s 曲の最後の一打
+  total: 1290, // 43.0s
 };
 
 // エンドカードに出す URL（公開先が決まったら書く。空なら出さない）
 export const APP_URL = '';
+// Web 版（BusPromoWeb）の URL。Safari のアドレス・エンドカード・QR コード（make_qr.py がここから読む）に使う
+export const WEB_URL = 'https://bus-gamma-two.vercel.app/';
+export const WEB_HOST = WEB_URL.replace(/^https?:\/\//, '').replace(/\/$/, '');
 
 // ── 色（アプリの CSS 変数と同じ）──────────────────────
 export const C = {
@@ -93,9 +97,12 @@ export const ease = (f, [a, b], [from, to], easing = EASE_OUT) => {
   return interpolate(f, [a, b], [from, to], { ...CLAMP, easing });
 };
 
-// delay フレーム後に 0→1 へ弾むばね
-export const sp = (f, delay = 0, config = {}) =>
-  spring({ frame: f - delay, fps: FPS, config: { damping: 16, stiffness: 170, mass: 0.85, ...config } });
+// delay フレーム後に 0→1 へ弾むばね。落ち着いたら（ずれ 0.3% 未満）ぴったり 1 にする
+// （細かい揺れ戻りが残ると、文字が 1px 未満で動き続けて震えて見えるため）
+export const sp = (f, delay = 0, config = {}) => {
+  const v = spring({ frame: f - delay, fps: FPS, config: { damping: 16, stiffness: 170, mass: 0.85, ...config } });
+  return f - delay > 8 && Math.abs(1 - v) < 0.003 ? 1 : v;
+};
 
 // 落ち着いた（ほぼオーバーシュートしない）ばね
 export const spSoft = (f, delay = 0) => sp(f, delay, { damping: 26, stiffness: 120, mass: 1 });

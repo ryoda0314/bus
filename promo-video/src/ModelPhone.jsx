@@ -74,12 +74,23 @@ const load = () => {
       } else if (/Lens/.test(name)) {
         o.material = new THREE.MeshPhysicalMaterial({ color: 0x05070d, metalness: 0.6, roughness: 0.08, clearcoat: 1, envMapIntensity: 2 });
       } else if (name === '17ProMax_Logo') {
-        o.material = metal(0x45468c, 0.15);
+        // 背面のロゴは見せない（他社の商標を映さない）。背面の板にはロゴの形の穴があるので、
+        // 消すと奥の金属が見えてしまう。背面と同じすりガラスで塗ってなじませる
+        o.material = new THREE.MeshPhysicalMaterial({ color: FRAME, metalness: 0.35, roughness: 0.55, envMapIntensity: 1.0 });
       } else if (o.material) {
         o.material.envMapIntensity = 1.2;
       }
     });
-    toGlass.forEach((o) => { o.removeFromParent(); glassRoot.add(o); });
+    toGlass.forEach((o) => { o.removeFromParent(); glassRoot.add(o); o.renderOrder = 1; });
+    // ガラスは本体とは別に描いて上に重ねるので、そのままだと本体の奥にあるガラス（背面のレンズのカバーなど）まで
+    // 描かれて、横から見たときに透けて見える。本体の写しを「奥行きだけ」先に描いて、隠れるガラスは描かないようにする
+    const occluder = root.clone(true);
+    occluder.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = new THREE.MeshBasicMaterial({ colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+      o.renderOrder = 0;
+    });
+    glassRoot.add(occluder);
     shared.bodyRoot = root;
     shared.glassRoot = glassRoot;
     body.add(root);
@@ -135,11 +146,13 @@ export const quadMatrix = (w, h, q) => {
   return `matrix3d(${m.map((x) => +x.toFixed(9)).join(',')})`;
 };
 
+// 表示部分の4隅（左上・右上・右下・左下）を画面に投影した位置
+const screenQuad = (pose, z = 0) => projectPoints(pose, [[-MW / 2, MH / 2, z], [MW / 2, MH / 2, z], [MW / 2, -MH / 2, z], [-MW / 2, -MH / 2, z]]);
+// 投影した4隅の面積（正なら表、負なら裏を向いている）
+const quadArea = (q) => q.reduce((a, [x, y], i) => { const [x2, y2] = q[(i + 1) % 4]; return a + x * y2 - x2 * y; }, 0) / 2;
+
 // DOM の画面（SCREEN_W x SCREEN_H）を、モデルの表示部分の上（高さ z）に貼る matrix3d
-export const screenMatrix = (pose, z = 0) => {
-  const q = projectPoints(pose, [[-MW / 2, MH / 2, z], [MW / 2, MH / 2, z], [MW / 2, -MH / 2, z], [-MW / 2, -MH / 2, z]]);
-  return quadMatrix(SCREEN_W, SCREEN_H, q);
-};
+export const screenMatrix = (pose, z = 0) => quadMatrix(SCREEN_W, SCREEN_H, screenQuad(pose, z));
 
 // 本体（またはガラス）を 2D のキャンバスに描く
 const draw = (ctx, which, pose, region) => {
@@ -192,6 +205,10 @@ export const ModelPhone = ({ pose, children, shadow = 1, glare = 1 }) => {
   const w = Math.ceil(560 * s + 260);
   const h = Math.ceil(1000 * s + 260);
   const region = { x: Math.round(pose.x - w / 2), y: Math.round(pose.y - h / 2), w, h };
+  // 端末が回って画面が裏や真横を向いているあいだは、DOM の画面を見えなくする
+  // （外すと iframe が読み込み直しになるので、visibility で隠すだけ）
+  const q = screenQuad(pose);
+  const facing = quadArea(q) > 0.02 * MW * MH * s * s;
   return (
     <div style={{ position: 'absolute', inset: 0, opacity: pose.o ?? 1, pointerEvents: 'none' }}>
       <Layer
@@ -201,7 +218,8 @@ export const ModelPhone = ({ pose, children, shadow = 1, glare = 1 }) => {
         style={{ filter: shadow > 0 ? `drop-shadow(0 ${46 * s}px ${60 * s}px rgba(22,20,74,${0.42 * shadow})) drop-shadow(0 ${12 * s}px ${16 * s}px rgba(22,20,74,${0.22 * shadow}))` : undefined }}
       />
       <div style={{
-        position: 'absolute', left: 0, top: 0, width: SCREEN_W, height: SCREEN_H, transformOrigin: '0 0', transform: screenMatrix(pose),
+        position: 'absolute', left: 0, top: 0, width: SCREEN_W, height: SCREEN_H, transformOrigin: '0 0',
+        transform: facing ? quadMatrix(SCREEN_W, SCREEN_H, q) : 'scale(0)', visibility: facing ? 'visible' : 'hidden',
         borderRadius: MODEL.screen.radius, overflow: 'hidden', background: '#000',
       }}>
         {children}

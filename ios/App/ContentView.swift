@@ -175,6 +175,7 @@ struct TimetableScreen: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(T.foot)
             Link(T.link, destination: URL(string: "https://sairibus.com/bus/timetable/")!).underline()
+            Text("난경のために作りました。")
         }
         .font(.system(size: 12))
         .foregroundStyle(Palette.muted)

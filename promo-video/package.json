@@ -7,10 +7,13 @@
   "scripts": {
     "sync": "node sync_app.mjs",
     "audio": "python make_audio.py",
-    "studio": "node sync_app.mjs && remotion studio src/index.js",
-    "frames": "node sync_app.mjs && node preview_frames.mjs",
+    "studio": "node sync_app.mjs && python make_qr.py && remotion studio src/index.js",
+    "frames": "node sync_app.mjs && python make_qr.py && node preview_frames.mjs",
     "render": "node sync_app.mjs && python make_audio.py && node render.mjs",
-    "model": "node model/export.mjs"
+    "model": "node model/export.mjs",
+    "render:3d": "node sync_app.mjs && python make_audio.py && node render.mjs --id=BusPromo3D",
+    "qr": "python make_qr.py",
+    "render:web": "node sync_app.mjs && python make_audio.py && python make_qr.py && node render.mjs --id=BusPromoWeb"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.481",

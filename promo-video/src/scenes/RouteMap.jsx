@@ -19,6 +19,18 @@ const viaAt = (t) => (t < 0.5 ? bez(VIA1, t * 2) : bez(VIA2, t * 2 - 1));
 
 const STOP_LABEL = { toyonaka: '豊中', kougaku: '工学部前', ningen: '人科前' };
 
+// バスは、出発地の側（豊中か吹田か）が変わるたびに、いまいる端から反対の端へ走って止まる（途中で消えたり飛んだりしない）。
+// 1回の道のりは直行 44 フレーム・箕面経由 56 フレーム。乗り場の向きが変わる間隔（60 フレーム）より短くして、
+// 次に向きが変わるときには必ず端に着いているようにしてある。
+const RUN = { exp: 44, via: 56 };
+const sideOf = (st) => (st.stop === 'toyonaka' ? 'T' : 'S');
+// f からさかのぼって、出発地の側が変わったフレーム（なければ at）
+const tripStart = (f, stOf, at) => {
+  const side = sideOf(stOf(f));
+  for (let g = f; g > at; g--) if (sideOf(stOf(g - 1)) !== side) return g;
+  return at;
+};
+
 // stOf(f) で、その時点の端末の state（乗り場・方面）を引く。切り替えは 6 フレームでなじませる
 export const RouteMap = ({ f, stOf, at, exitAt }) => {
   const avg = (fn) => {
@@ -35,12 +47,15 @@ export const RouteMap = ({ f, stOf, at, exitAt }) => {
   const show = ease(f, [at, at + 8], [0, 1]) * (1 - ease(f, [exitAt, exitAt + 8], [0, 1]));
   const times = TT[st.stop];
 
-  // バスは出発地 → 行き先へ、80 フレームで1周
-  const phase = ((f - at) % 80) / 80;
-  const tt = fromSuita ? 1 - phase : phase;
-  const busOp = ease(phase, [0, 0.1], [0, 1]) * (1 - ease(phase, [0.88, 1], [0, 1]));
-  const expBus = bez(EXP, tt);
-  const viaBus = viaAt(tt);
+  // バス：出発地から行き先へ走って、着いたら止まる
+  const t0 = tripStart(f, stOf, at);
+  const run = (dur) => {
+    const k = ease(f, [t0, t0 + dur], [0, 1], EASE_IN_OUT);
+    return fromSuita ? 1 - k : k;
+  };
+  const busOp = 1;
+  const expBus = bez(EXP, run(RUN.exp));
+  const viaBus = viaAt(run(RUN.via));
 
   const node = (p, label, on, sub) => (
     <g>

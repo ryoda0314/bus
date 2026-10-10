@@ -7,8 +7,8 @@ export const SCREEN_H = 852;
 export const STATUS_H = 54;
 export const APP_H = SCREEN_H - STATUS_H; // アプリの表示域（ステータスバーの下から）
 
-// iPhone のステータスバー。time を空にすると時刻は出さない（ロック画面）
-export const StatusBar = ({ time, color = '#fff', bg = 'transparent' }) => (
+// iPhone のステータスバー。time を空にすると時刻は出さない（ロック画面）。airplane = true で機内モード（電波と Wi-Fi の代わりに飛行機）
+export const StatusBar = ({ time, color = '#fff', bg = 'transparent', airplane = false }) => (
   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: STATUS_H, zIndex: 250, color, background: bg, fontFamily: FONT }}>
     {time && (
       <div style={{
@@ -17,14 +17,22 @@ export const StatusBar = ({ time, color = '#fff', bg = 'transparent' }) => (
       }}>{time}</div>
     )}
     <div style={{ position: 'absolute', right: 32, top: 21, display: 'flex', alignItems: 'center', gap: 6 }}>
-      <svg width="18" height="12" viewBox="0 0 18 12">
-        {[0, 1, 2, 3].map((i) => <rect key={i} x={i * 4.6} y={9 - i * 3} width="3.2" height={3 + i * 3} rx="0.8" fill={color} />)}
-      </svg>
-      <svg width="16" height="12" viewBox="0 0 16 12">
-        <path d="M8 11.2l2.3-2.6a3.3 3.3 0 00-4.6 0z" fill={color} />
-        <path d="M3.4 6.2a6.6 6.6 0 019.2 0l-1.4 1.6a4.4 4.4 0 00-6.4 0z" fill={color} />
-        <path d="M1 3.6a10 10 0 0114 0l-1.3 1.5a8 8 0 00-11.4 0z" fill={color} />
-      </svg>
+      {airplane ? (
+        <svg width="17" height="13" viewBox="0 0 24 18">
+          <path d="M23 9c0-1-1-1.6-2.2-1.6H15L10 0H7.4l2.8 7.4H4.6L2.6 4.6H.6L2 9 .6 13.4h2l2-2.8h5.6L7.4 18H10l5-7.4h5.8C22 10.6 23 10 23 9z" fill={color} />
+        </svg>
+      ) : (
+        <>
+          <svg width="18" height="12" viewBox="0 0 18 12">
+            {[0, 1, 2, 3].map((i) => <rect key={i} x={i * 4.6} y={9 - i * 3} width="3.2" height={3 + i * 3} rx="0.8" fill={color} />)}
+          </svg>
+          <svg width="16" height="12" viewBox="0 0 16 12">
+            <path d="M8 11.2l2.3-2.6a3.3 3.3 0 00-4.6 0z" fill={color} />
+            <path d="M3.4 6.2a6.6 6.6 0 019.2 0l-1.4 1.6a4.4 4.4 0 00-6.4 0z" fill={color} />
+            <path d="M1 3.6a10 10 0 0114 0l-1.3 1.5a8 8 0 00-11.4 0z" fill={color} />
+          </svg>
+        </>
+      )}
       <div style={{ position: 'relative', width: 25, height: 12, borderRadius: 4, border: `1.2px solid ${color}`, opacity: 0.95, boxSizing: 'border-box', padding: 1.5 }}>
         <div style={{ width: '78%', height: '100%', borderRadius: 2, background: color }} />
         <div style={{ position: 'absolute', right: -3.5, top: 3, width: 2, height: 4, borderRadius: 1, background: color }} />
